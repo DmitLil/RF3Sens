@@ -154,11 +154,11 @@ void loop(){
     SERIAL_OUT.write(0x0a);
     //SERIAL_OUT.write(0x0d);
 
-#if !defined(software_serial)
-      delay(20);
+#if SERIAL_SPEED > 115200
+    delay(20);
 #else
-      delay(60);  //задержка больше из-за низкой скорости Digispark
-    #endif
+    delay(60);  //задержка больше из-за низкой скорости serial
+#endif
   }
 //-------------------------------------------------------------------------------------------
 #elif debug_type ==4
@@ -185,10 +185,10 @@ void loop(){
       SERIAL_OUT.write(0x0a);
       //SERIAL_OUT.write(0x0d);
 
-#if !defined(software_serial)
-      delay(20);
+#if SERIAL_SPEED > 115200
+    delay(20);
 #else
-      delay(60);  //задержка больше из-за низкой скорости Digispark
+    delay(60);  //задержка больше из-за низкой скорости serial
 #endif
     }
   }
