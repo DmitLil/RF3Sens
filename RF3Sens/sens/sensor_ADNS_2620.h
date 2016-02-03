@@ -41,9 +41,9 @@
 #define delay_tSWW        100
 #define delay_tSRAD       100
 
-#define ConstMax          59
-#define ConstMin          3
-#define ConstPixMin       50
-#define ConstPixMax       70
+#define ConstMax          62
+//#define ConstMin          3
+//#define ConstPixMin       50
+//#define ConstPixMax       70
 
 #endif //#ifndef SENSOR_ADNS_2620_H

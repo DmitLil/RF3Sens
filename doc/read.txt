@@ -2,13 +2,33 @@
 Тут начинается жесткий хак. По умолчанию частота шим на дуинах всего около 500гц. Для digispark нагуглилось:
 http://forum.arduino.cc/index.php?topic=144935.15
 http://digistump.com/wiki/digispark/tricks
-http://digistump.com/board/index.php/topic,89.0.html
+http://forum.amperka.ru/threads/%D0%9F%D1%80%D0%BE%D0%B1%D0%BB%D0%B5%D0%BC%D0%B0-%D1%81-%D0%B2%D1%8B%D0%B2%D0%BE%D0%B4%D0%BE%D0%BC-pwm-%D1%81%D0%B8%D0%B3%D0%BD%D0%B0%D0%BB%D0%BE%D0%BC-%D0%BD%D0%B0-attiny45.1609/
+
 T.e. в моем случае надо сделать:
--a) added a modification to allow high speed hardware PWM on Pin0 (up to 32.2KHz), 1 (up to 64.5KHz) and 4 (up to 64.5KHz) without breaking micros(), millis(), delay() and without disturbing DigiUSB. FAVOR_PHASE_CORRECT_PWM shall be set to 0 in core_build_option.h, otherwise Pin1 can only reach 32.2KHz and not 64.5KHz.
+PWM on Pin0 (up to 32.2KHz), 1 (up to 64.5KHz) and 4 (up to 64.5KHz)
+without breaking micros(), millis(), delay() and without disturbing DigiUSB.
+FAVOR_PHASE_CORRECT_PWM set to 0
+MS_TIMER_TICK_EVERY_X_CYCLES set to 1
+Digispark Pin	PWM Frequency (Hz)
+Pin0			32227
+Pin1			64453
+Pin4			64453
 
+FAVOR_PHASE_CORRECT_PWM to 0 in:
+arduino-1.0x/hardware/digispark/cores/tiny/core_build_options.h
 
+MS_TIMER_TICK_EVERY_X_CYCLES symbol in:
+arduino-1.0x/hardware/digispark/cores/tiny/wiring.c
 
+Pin0 = 64453 Hz:
+закомментировать TIMER0_SUPPORTS_PHASE_CORRECT_PWM в вветке #if defined( __AVR_ATtinyX5__ )
+.arduino15/packages/digistump/hardware/avr/1.6.5/cores/tiny/core_timers.h
 
 
 Схема включения adns2620 взял тут:
 http://www.techdesign.be/projects/046/046.htm
+
+Мощность лазера на разных поверхностях:
+белая 12
+черный сплошной тонер 120
+черный пластик 170

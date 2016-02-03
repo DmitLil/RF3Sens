@@ -14,6 +14,7 @@
 #endif
 
 unsigned char Str[5];
+uint8_t RegPowLaser = 0;
 
 void setup(){
   //set pin I/O direction
@@ -21,11 +22,19 @@ void setup(){
     pin_nCS_Mode_OUTPUT;
     pin_nCS_HIGH;
   #endif
+
   pin_led_Mode_OUTPUT;
   pin_led_HIGH;
-#ifdef pin_TRIG_bit
-  pin_TRIG_Mode_INPUT;
-#endif
+
+  #ifdef pin_TRIG_bit
+    pin_TRIG_Mode_INPUT;
+  #endif
+
+  #if defined(pin_HwPwm_bit)
+    pin_HwPwm_Mode_OUTPUT;
+    pin_HwPwm_LOW;
+    analogWrite(pin_HwPwm_bit, 0);
+  #endif 
 
 #ifdef power_via_mcu
   #ifdef pin_sensor_gnd_bit
@@ -64,40 +73,55 @@ void loop(){
 //###########################################################################################
 // штатный режим датчика для 3D принтера
 #ifndef debug_type
-  byte dataMax, dataMin, dataPix_Sum;
-
-  while(1){
-    dataMax = ADNS_read(Maximum_Pixel);
-    //dataMax = ADNS_read(Pixel_Sum);
-    //dataMax = ADNS_read(squal);
-
-    dataMax > ConstMax ? pin_led_LOW : pin_led_HIGH;
+	byte dataMax;
+	byte dataSum;
 
 /*
-    pin_led_HIGH;
-    while(1){ //шаг1
-      dataMax = ADNS_read(Maximum_Pixel);
-      if(dataMax > ConstMax) break;
-    }
-    while(1){ //шаг2
-      dataMax = ADNS_read(Maximum_Pixel);
-      dataMin = ADNS_read(Minimum_Pixel);
-      if(dataMax >(ConstMax -2) && dataMin < ConstMin) break;
-    }
-    while(1){ //шаг3
-      dataMax = ADNS_read(Maximum_Pixel);
-      dataMin = ADNS_read(Minimum_Pixel);
-      dataPix_Sum = ADNS_read(Pixel_Sum);
-      if(dataMax > (ConstMax -2) && dataMin < (ConstMin +2) && dataPix_Sum > ConstPixMin && dataPix_Sum < ConstPixMax) break;
-    }
+  while(1)
+  {
+    while(pin_TRIG_IN){}      //ждать engage_z_probe
     pin_led_LOW;
-
-    while(1){ //ожидание подьема головы
-      dataMax = ADNS_read(Maximum_Pixel);
-      if(dataMax < ConstMax -2) break;
-    }
-*/
+    while(!pin_TRIG_IN){}
+    pin_led_HIGH;
   }
+*/
+
+	while(1)
+	{
+		pin_led_HIGH;
+		RegPowLaser =0;								//выключить лазер
+		analogWrite(pin_HwPwm_bit, RegPowLaser);	//
+
+		while(pin_TRIG_IN){}			//ждать engage_z_probe
+
+		RegPowLaser =255;							//включить лазер
+		analogWrite(pin_HwPwm_bit, RegPowLaser);	//
+
+		while(!pin_TRIG_IN)	//шаг1
+		{	
+			dataMax = ADNS_read(Maximum_Pixel);
+			dataSum = ADNS_read(Pixel_Sum);
+			RefrPowerLaser(dataMax);
+	
+			//if(dataMax > (ConstMax - 30) && RegPowLaser < 170)
+			if(dataMax > (ConstMax -3) && dataSum < 6) break;
+		}
+		pin_led_LOW;
+		delay(200);
+		pin_led_HIGH;
+
+		while(!pin_TRIG_IN) //шаг2
+		{
+			dataMax = ADNS_read(Maximum_Pixel);
+			dataSum = ADNS_read(Pixel_Sum);
+			RefrPowerLaser(dataMax);
+	
+			if(dataMax < (ConstMax-10) && dataSum > 6) break;
+		}
+		pin_led_LOW;
+		delay(10);
+		while(!pin_TRIG_IN){}			//ждать выключения engage_z_probe
+	}
 //###########################################################################################
 // отладочные режимы
 #else
@@ -108,8 +132,18 @@ void loop(){
 
   while(1){
     pixel_and_params_grab(Frame);
+	Frame[NUM_PIXS + 0] = RegPowLaser;	//ADNS_read(squal)
+
     SERIAL_OUT.write(Frame, NUM_PIXS + 6); // send frame in raw format
-    //delay(2);
+
+    //для слежения за мощностью лазера
+    for(uint8_t a = 0; a < 100; a++)
+    {
+      Frame[NUM_PIXS + 1] = ADNS_read(Maximum_Pixel);
+      RefrPowerLaser(Frame[NUM_PIXS + 1]);
+      delay(5);
+    }
+
   }
 //-------------------------------------------------------------------------------------------
 #elif debug_type ==2
@@ -137,11 +171,11 @@ void loop(){
   //листинг для электронных таблиц: В шапке названия, дальше только данные разделенные "tab".
   byte Frame[6];
   //заголовок
-  SERIAL_OUT.println  (F  ("Squal:\tMax:\tMin:\tSum:\tShutter:"));
+  SERIAL_OUT.println  (F  ("PowLas:\tMax:\tMin:\tSum:\tShutter:"));
   while(1){
     params_grab(Frame);
 
-    ByteToString(Frame[0]); SERIAL_OUT.write(Str[2]); SERIAL_OUT.write(Str[1]); SERIAL_OUT.write(Str[0]); SERIAL_OUT.write(0x09);
+    ByteToString(RegPowLaser); SERIAL_OUT.write(Str[2]); SERIAL_OUT.write(Str[1]); SERIAL_OUT.write(Str[0]); SERIAL_OUT.write(0x09);
     ByteToString(Frame[1]); SERIAL_OUT.write(Str[2]); SERIAL_OUT.write(Str[1]); SERIAL_OUT.write(Str[0]); SERIAL_OUT.write(0x09);
     ByteToString(Frame[2]); SERIAL_OUT.write(Str[2]); SERIAL_OUT.write(Str[1]); SERIAL_OUT.write(Str[0]); SERIAL_OUT.write(0x09);
     ByteToString(Frame[3]); SERIAL_OUT.write(Str[2]); SERIAL_OUT.write(Str[1]); SERIAL_OUT.write(Str[0]); SERIAL_OUT.write(0x09);
@@ -154,10 +188,12 @@ void loop(){
     SERIAL_OUT.write(0x0a);
     //SERIAL_OUT.write(0x0d);
 
+	RefrPowerLaser(Frame[1]);
+
 #if SERIAL_SPEED > 115200
     delay(20);
 #else
-    delay(60);  //задержка больше из-за низкой скорости serial
+    delay(40);  //задержка больше из-за низкой скорости serial
 #endif
   }
 //-------------------------------------------------------------------------------------------
@@ -360,7 +396,6 @@ void Uint16ToString(uint16_t a){
 //-------------------------------------------------------------------------------------------
 uint8_t ByteToAscii_h(uint8_t x){
   uint8_t tmpByte;
-
   tmpByte = (x >> 4) + 0x30;
   if (tmpByte > 0x39) { tmpByte += 0x07; }
   return tmpByte;
@@ -372,3 +407,34 @@ uint8_t ByteToAscii_l(uint8_t x){
   if (tmpByte > 0x39) { tmpByte += 0x07; }
   return tmpByte;
 }
+//-------------------------------------------------------------------------------------------
+void RefrPowerLaser(uint8_t power)
+{
+  if(power < ConstMax && RegPowLaser < 255)
+  {
+    RegPowLaser++;
+    analogWrite(pin_HwPwm_bit, RegPowLaser);
+  }
+  else if(power > ConstMax && RegPowLaser > 0)
+  {
+    RegPowLaser--;
+    analogWrite(pin_HwPwm_bit, RegPowLaser);
+  }
+}
+//-------------------------------------------------------------------------------------------
+void RefrPowerLaserMin(uint8_t power)
+{
+  if(power > ConstMax && RegPowLaser > 0)
+  {
+    RegPowLaser--;
+    analogWrite(pin_HwPwm_bit, RegPowLaser);
+  }
+}
+//-------------------------------------------------------------------------------------------
+/*
+g91
+g1 y-5 f600
+g30
+g1 y+5 f600
+g30
+*/
